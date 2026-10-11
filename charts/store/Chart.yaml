@@ -1,0 +1,4 @@
+apiVersion: v2
+name: store
+description: WooCommerce store (WordPress + MariaDB)
+version: 0.1.0

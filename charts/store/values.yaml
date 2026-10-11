@@ -1,0 +1,27 @@
+mariadb:
+  image: mariadb:11.4
+  database: wordpress
+  user: wordpress
+  storage: 2Gi
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      memory: 512Mi
+
+# Passwords are NOT stored here. They come from secrets.local.yaml (git-ignored).
+secrets:
+  mariadbRootPassword: ""
+  mariadbPassword: ""
+
+wordpress:
+  image: wordpress:6-apache
+  host: shop.localtest.me
+  storage: 2Gi
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      memory: 768Mi
