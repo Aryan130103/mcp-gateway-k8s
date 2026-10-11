@@ -1,0 +1,128 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: store-setup
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-delete-policy": before-hook-creation
+spec:
+  backoffLimit: 1
+  activeDeadlineSeconds: 900
+  template:
+    spec:
+      restartPolicy: Never
+      securityContext:
+        runAsUser: 33
+        runAsGroup: 33
+      containers:
+        - name: wpcli
+          image: {{ .Values.setup.image }}
+          env:
+            - name: HOME
+              value: /tmp
+            - name: WP_CLI_CACHE_DIR
+              value: /tmp/wpcli-cache
+            - name: WORDPRESS_DB_HOST
+              value: "mariadb:3306"
+            - name: WORDPRESS_DB_NAME
+              value: {{ .Values.mariadb.database | quote }}
+            - name: WORDPRESS_DB_USER
+              value: {{ .Values.mariadb.user | quote }}
+            - name: WORDPRESS_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mariadb-secret
+                  key: password
+            - name: WP_HOST
+              value: {{ .Values.wordpress.host | quote }}
+            - name: SITE_TITLE
+              value: {{ .Values.setup.siteTitle | quote }}
+            - name: ADMIN_USER
+              value: {{ .Values.setup.adminUser | quote }}
+            - name: ADMIN_EMAIL
+              value: {{ .Values.setup.adminEmail | quote }}
+            - name: ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: wp-admin-secret
+                  key: admin-password
+            - name: WOO_CK
+              valueFrom:
+                secretKeyRef:
+                  name: woo-api-secret
+                  key: consumer-key
+            - name: WOO_CS
+              valueFrom:
+                secretKeyRef:
+                  name: woo-api-secret
+                  key: consumer-secret
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              set -e
+              cd /var/www/html
+              echo "Waiting for wp-config and database..."
+              until [ -f wp-config.php ] && wp db query "SELECT 1" >/dev/null 2>&1; do sleep 5; done
+
+              if ! wp core is-installed; then
+                wp core install --url="http://$WP_HOST" --title="$SITE_TITLE" \
+                  --admin_user="$ADMIN_USER" --admin_password="$ADMIN_PASSWORD" \
+                  --admin_email="$ADMIN_EMAIL" --skip-email
+              else
+                echo "WordPress already installed"
+              fi
+
+              wp core update
+              wp core update-db
+
+              wp plugin is-installed woocommerce || wp plugin install woocommerce
+              wp plugin activate woocommerce
+              wp option update woocommerce_currency INR
+              wp option update woocommerce_default_country IN:MH
+              wp rewrite structure '/%postname%/'
+              wp rewrite flush --hard
+
+              wp wc payment_gateway update cod --enabled=true --user="$ADMIN_USER"
+
+              if [ "$(wp post list --post_type=product --format=count)" = "0" ]; then
+                wp wc product create --name="Cotton T-Shirt" --type=simple --regular_price=499 --user="$ADMIN_USER" --porcelain
+                wp wc product create --name="Running Shoes" --type=simple --regular_price=1999 --user="$ADMIN_USER" --porcelain
+                wp wc product create --name="Coffee Mug" --type=simple --regular_price=299 --user="$ADMIN_USER" --porcelain
+                wp wc product create --name="Laptop Backpack" --type=simple --regular_price=1299 --user="$ADMIN_USER" --porcelain
+              else
+                echo "Products already exist, skipping"
+              fi
+              cat > /tmp/apikey.php <<'PHP'
+              <?php
+              global $wpdb;
+              $user = get_user_by('login', getenv('ADMIN_USER'));
+              $ck = getenv('WOO_CK');
+              $cs = getenv('WOO_CS');
+              $table = $wpdb->prefix . 'woocommerce_api_keys';
+              $wpdb->delete($table, array('description' => 'mcp-server'));
+              $wpdb->insert($table, array(
+                'user_id' => $user->ID,
+                'description' => 'mcp-server',
+                'permissions' => 'read_write',
+                'consumer_key' => wc_api_hash($ck),
+                'consumer_secret' => $cs,
+                'truncated_key' => substr($ck, -7),
+              ));
+              echo "API key registered\n";
+              PHP
+              wp eval-file /tmp/apikey.php
+              echo "Step 2 complete"
+              echo "Step 3 complete"
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              memory: 512Mi
+          volumeMounts:
+            - name: data
+              mountPath: /var/www/html
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: wordpress-data

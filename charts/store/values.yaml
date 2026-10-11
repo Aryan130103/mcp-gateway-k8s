@@ -25,3 +25,9 @@ wordpress:
       memory: 256Mi
     limits:
       memory: 768Mi
+
+setup:
+  image: wordpress:cli
+  siteTitle: "Demo Store"
+  adminUser: admin
+  adminEmail: admin@example.com

@@ -1,0 +1,7 @@
+
+Store is ready:
+  Shop:   http://{{ .Values.wordpress.host }}
+  Admin:  http://{{ .Values.wordpress.host }}/wp-admin
+  User:   {{ .Values.setup.adminUser }}
+  Password: kubectl get secret wp-admin-secret -o jsonpath='{.data.admin-password}' | base64 -d; echo
+
