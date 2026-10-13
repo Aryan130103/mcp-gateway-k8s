@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: woo-mcp
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: woo-mcp
+  template:
+    metadata:
+      labels:
+        app: woo-mcp
+    spec:
+      containers:
+        - name: woo-mcp
+          image: {{ .Values.image }}
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8000
+          env:
+            - name: WOO_BASE_URL
+              value: {{ .Values.storeUrl | quote }}
+            - name: WOO_CONSUMER_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.apiSecretName }}
+                  key: consumer-key
+            - name: WOO_CONSUMER_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.apiSecretName }}
+                  key: consumer-secret
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 10001
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}

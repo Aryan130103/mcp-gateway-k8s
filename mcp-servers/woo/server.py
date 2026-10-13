@@ -2,6 +2,8 @@ import os
 
 import httpx
 from mcp.server.fastmcp import FastMCP
+from starlette.requests import Request
+from starlette.responses import PlainTextResponse
 
 # All settings come from the environment, never from code.
 BASE_URL = os.environ.get("WOO_BASE_URL", "http://wordpress:80")
@@ -14,6 +16,11 @@ ORDER_STATUSES = {
 }
 
 mcp = FastMCP("woo", host="0.0.0.0", port=8000)
+
+
+@mcp.custom_route("/health", methods=["GET"])
+async def health(request: Request) -> PlainTextResponse:
+    return PlainTextResponse("ok")
 
 client = httpx.Client(
     base_url=BASE_URL,

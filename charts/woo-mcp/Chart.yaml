@@ -1,0 +1,4 @@
+apiVersion: v2
+name: woo-mcp
+description: WooCommerce MCP server (internal only, no Ingress)
+version: 0.1.0

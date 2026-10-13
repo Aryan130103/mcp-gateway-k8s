@@ -1,0 +1,4 @@
+apiVersion: v2
+name: extra-mcp
+description: Extra internal MCP servers (notes, utility); no Ingress
+version: 0.1.0

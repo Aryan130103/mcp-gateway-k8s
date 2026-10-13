@@ -1,0 +1,11 @@
+servers:
+  - name: notes-mcp
+    image: notes-mcp:0.1.0
+  - name: utility-mcp
+    image: utility-mcp:0.1.0
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    memory: 128Mi

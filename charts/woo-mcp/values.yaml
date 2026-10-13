@@ -1,0 +1,9 @@
+image: woo-mcp:0.1.0
+storeUrl: http://wordpress:80
+apiSecretName: woo-api-secret
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    memory: 256Mi
