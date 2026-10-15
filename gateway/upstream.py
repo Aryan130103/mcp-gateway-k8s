@@ -24,7 +24,7 @@ async def list_all_tools(servers: list[dict]) -> tuple[list[dict], list[dict]]:
         except asyncio.TimeoutError:
             return server["name"], "unreachable", [], "timed out"
         except Exception as exc:  # report the type only, never raw upstream details
-            return server["name"], "unreachable", [], type(exc).__name__
+            return server["name"], "unreachable", [], root_error(exc)
 
     results = await asyncio.gather(*(one(s) for s in servers))
 
@@ -42,3 +42,17 @@ async def list_all_tools(servers: list[dict]) -> tuple[list[dict], list[dict]]:
                 }
             )
     return tools_out, status_out
+
+
+def root_error(exc: BaseException) -> str:
+    """Unwrap ExceptionGroup wrappers to the real cause, e.g. ConnectError."""
+    while isinstance(exc, BaseExceptionGroup) and exc.exceptions:
+        exc = exc.exceptions[0]
+    return type(exc).__name__
+
+
+async def call_tool(url: str, tool: str, arguments: dict):
+    async with streamablehttp_client(url) as (read, write, _):
+        async with ClientSession(read, write) as session:
+            await session.initialize()
+            return await session.call_tool(tool, arguments)

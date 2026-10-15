@@ -7,8 +7,10 @@ from pydantic import BaseModel, Field
 from auth import authenticate, create_key_for, require_admin
 from db import get_conn, init_db
 from upstream import list_all_tools
+from mcp_endpoint import router as mcp_router
 
 app = FastAPI(title="MCP Gateway")
+app.include_router(mcp_router)
 
 
 @app.on_event("startup")
@@ -147,3 +149,14 @@ async def list_tools(user: dict = Depends(authenticate)) -> dict:
         rows = conn.execute("SELECT name, url FROM mcp_servers WHERE enabled = 1 ORDER BY id").fetchall()
     tools, servers = await list_all_tools([dict(r) for r in rows])
     return {"tools": tools, "servers": servers}
+
+
+@app.get("/api/audit")
+def list_audit(limit: int = 50, _: dict = Depends(require_admin)) -> list[dict]:
+    limit = max(1, min(limit, 500))
+    with get_conn() as conn:
+        rows = conn.execute(
+            "SELECT id, ts, user_name, server, tool, duration_ms, outcome, detail "
+            "FROM audit_log ORDER BY id DESC LIMIT ?", (limit,)
+        ).fetchall()
+    return [dict(r) for r in rows]
