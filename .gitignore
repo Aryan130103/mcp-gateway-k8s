@@ -2,3 +2,6 @@ playground/
 secrets.local.yaml
 .venv/
 __pycache__/
+.venv/
+__pycache__/
+*.db
