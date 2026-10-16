@@ -1,0 +1,4 @@
+apiVersion: v2
+name: gateway
+description: MCP gateway (API keys, routing, audit log)
+version: 0.1.0
