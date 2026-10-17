@@ -1,0 +1,4 @@
+apiVersion: v2
+name: dashboard
+description: React dashboard for the MCP gateway
+version: 0.1.0

@@ -40,3 +40,18 @@ def require_admin(user: dict = Depends(authenticate)) -> dict:
     if user["role"] != "admin":
         raise HTTPException(403, "Admin role required.")
     return user
+
+
+def hash_password(password: str) -> str:
+    salt = secrets.token_bytes(16)
+    digest = hashlib.scrypt(password.encode(), salt=salt, n=2**14, r=8, p=1)
+    return salt.hex() + "$" + digest.hex()
+
+
+def verify_password(password: str, stored: str) -> bool:
+    try:
+        salt_hex, hash_hex = stored.split("$")
+        digest = hashlib.scrypt(password.encode(), salt=bytes.fromhex(salt_hex), n=2**14, r=8, p=1)
+    except ValueError:
+        return False
+    return secrets.compare_digest(digest.hex(), hash_hex)

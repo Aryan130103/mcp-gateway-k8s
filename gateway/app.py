@@ -4,7 +4,9 @@ from typing import Literal
 from fastapi import Depends, FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
-from auth import authenticate, create_key_for, require_admin
+from auth import (authenticate, create_key_for, hash_password, require_admin,
+                  verify_password)
+import secrets
 from db import get_conn, init_db
 from upstream import list_all_tools
 from mcp_endpoint import router as mcp_router
@@ -57,10 +59,15 @@ def create_my_key(body: KeyIn, user: dict = Depends(authenticate)) -> dict:
 def create_user(body: UserIn, _: dict = Depends(require_admin)) -> dict:
     try:
         with get_conn() as conn:
-            cur = conn.execute("INSERT INTO users (name, role) VALUES (?, ?)", (body.name, body.role))
+            temp_password = secrets.token_urlsafe(12)
+            cur = conn.execute(
+                "INSERT INTO users (name, role, password_hash) VALUES (?, ?, ?)",
+                (body.name, body.role, hash_password(temp_password)),
+            )
     except sqlite3.IntegrityError:
         raise HTTPException(409, f"User '{body.name}' already exists.")
-    return {"id": cur.lastrowid, "name": body.name, "role": body.role}
+    return {"id": cur.lastrowid, "name": body.name, "role": body.role,
+            "temporary_password": temp_password, "note": "Shown once. Share it with the user."}
 
 
 @app.get("/api/users")
@@ -160,3 +167,45 @@ def list_audit(limit: int = 50, _: dict = Depends(require_admin)) -> list[dict]:
             "FROM audit_log ORDER BY id DESC LIMIT ?", (limit,)
         ).fetchall()
     return [dict(r) for r in rows]
+
+
+class LoginIn(BaseModel):
+    name: str
+    password: str
+
+
+@app.post("/api/login")
+def login(body: LoginIn) -> dict:
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT id, name, role, password_hash FROM users WHERE name = ?", (body.name,)
+        ).fetchone()
+    if row is None or not row["password_hash"] or not verify_password(body.password, row["password_hash"]):
+        raise HTTPException(401, "Wrong name or password.")
+    token = create_key_for(row["id"], "session")
+    return {"token": token, "name": row["name"], "role": row["role"]}
+
+
+@app.get("/api/dashboard/servers")
+async def dashboard_servers(_: dict = Depends(require_admin)) -> list[dict]:
+    """Every registered server with a status and its tools, for the dashboard."""
+    with get_conn() as conn:
+        rows = [dict(r) for r in conn.execute(
+            "SELECT id, name, url, enabled FROM mcp_servers ORDER BY id").fetchall()]
+    tools, statuses = await list_all_tools([r for r in rows if r["enabled"]])
+    state = {s["server"]: s for s in statuses}
+    by_server: dict[str, list] = {}
+    for t in tools:
+        by_server.setdefault(t["server"], []).append(
+            {"name": t["name"].split("__", 1)[1], "description": t["description"]})
+    out = []
+    for r in rows:
+        if not r["enabled"]:
+            status, error = "Disabled", None
+        else:
+            s = state[r["name"]]
+            status = "Connected" if s["status"] == "ok" else "Unreachable"
+            error = s["error"]
+        out.append({"id": r["id"], "name": r["name"], "url": r["url"], "status": status,
+                    "error": error, "tools": by_server.get(r["name"], [])})
+    return out

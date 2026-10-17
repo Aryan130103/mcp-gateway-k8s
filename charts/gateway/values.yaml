@@ -1,4 +1,4 @@
-image: gateway:0.1.0
+image: gateway:0.1.1
 host: gateway.localtest.me
 storage: 1Gi
 resources:

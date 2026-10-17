@@ -1,0 +1,31 @@
+:root { color-scheme: light dark; --bg:#f5f6f8; --card:#fff; --text:#1c2230; --muted:#6b7385; --line:#e3e6ec; --accent:#2f5bea; }
+@media (prefers-color-scheme: dark) { :root { --bg:#12151c; --card:#1b2030; --text:#e8ebf2; --muted:#98a1b6; --line:#2a3145; --accent:#6c8cff; } }
+* { box-sizing: border-box; }
+body { margin:0; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background:var(--bg); color:var(--text); }
+header { display:flex; align-items:center; gap:12px; padding:12px 24px; background:var(--card); border-bottom:1px solid var(--line); }
+main { max-width:980px; margin:24px auto; padding:0 16px; display:grid; gap:16px; }
+.center { min-height:100vh; display:grid; place-items:center; padding:16px; }
+.card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:16px 20px; }
+.login { width:100%; max-width:340px; display:grid; gap:12px; }
+h1,h2 { margin:0; } h2 { font-size:1.1rem; }
+label { display:grid; gap:4px; font-size:.85rem; color:var(--muted); }
+input { padding:8px 10px; border:1px solid var(--line); border-radius:6px; background:var(--bg); color:var(--text); font:inherit; }
+button { padding:8px 14px; border:0; border-radius:6px; background:var(--accent); color:#fff; font:inherit; cursor:pointer; }
+button:disabled { opacity:.5; cursor:default; }
+button.ghost { background:transparent; color:var(--accent); border:1px solid var(--line); }
+button.danger { background:transparent; color:#d6455d; border:1px solid var(--line); }
+.row { display:flex; align-items:center; gap:10px; margin-bottom:8px; flex-wrap:wrap; }
+.spacer { flex:1; } .grow { flex:1; min-width:200px; }
+.muted { color:var(--muted); font-size:.85rem; }
+.mono { font-family: ui-monospace, Menlo, Consolas, monospace; font-size:.85rem; }
+.error { margin-top:8px; padding:8px 10px; border-radius:6px; background:rgba(214,69,93,.12); color:#d6455d; font-size:.9rem; }
+table { width:100%; border-collapse:collapse; }
+th,td { text-align:left; padding:10px 8px; border-bottom:1px solid var(--line); vertical-align:top; }
+th { color:var(--muted); font-weight:500; font-size:.8rem; }
+tr.clickable { cursor:pointer; } tr.clickable:hover { background:rgba(127,127,127,.06); }
+.actions { white-space:nowrap; display:flex; gap:6px; }
+.badge { padding:2px 8px; border-radius:999px; font-size:.78rem; font-weight:600; }
+.badge.connected { background:rgba(34,166,98,.15); color:#1f9d5c; }
+.badge.unreachable { background:rgba(214,69,93,.15); color:#d6455d; }
+.badge.disabled { background:rgba(127,127,127,.18); color:var(--muted); }
+.tools { margin:0; padding-left:18px; display:grid; gap:6px; }
