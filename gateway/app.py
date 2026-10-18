@@ -91,7 +91,8 @@ def list_keys(_: dict = Depends(require_admin)) -> list[dict]:
     with get_conn() as conn:
         rows = conn.execute(
             """SELECT k.id, u.name AS user, k.label, k.prefix, k.created_at, k.revoked_at
-               FROM api_keys k JOIN users u ON u.id = k.user_id ORDER BY k.id"""
+               FROM api_keys k JOIN users u ON u.id = k.user_id
+               WHERE k.label != 'session' ORDER BY k.id"""
         ).fetchall()
     return [dict(r) for r in rows]
 
@@ -209,3 +210,27 @@ async def dashboard_servers(_: dict = Depends(require_admin)) -> list[dict]:
         out.append({"id": r["id"], "name": r["name"], "url": r["url"], "status": status,
                     "error": error, "tools": by_server.get(r["name"], [])})
     return out
+
+
+@app.get("/api/me/keys")
+def my_keys(user: dict = Depends(authenticate)) -> list[dict]:
+    with get_conn() as conn:
+        rows = conn.execute(
+            "SELECT id, label, prefix, created_at, revoked_at FROM api_keys "
+            "WHERE user_id = ? AND label != 'session' ORDER BY id",
+            (user["user_id"],),
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+@app.delete("/api/me/keys/{key_id}")
+def revoke_my_key(key_id: int, user: dict = Depends(authenticate)) -> dict:
+    with get_conn() as conn:
+        cur = conn.execute(
+            "UPDATE api_keys SET revoked_at = CURRENT_TIMESTAMP "
+            "WHERE id = ? AND user_id = ? AND label != 'session' AND revoked_at IS NULL",
+            (key_id, user["user_id"]),
+        )
+    if cur.rowcount == 0:
+        raise HTTPException(404, "No active key with that id.")
+    return {"revoked": key_id}

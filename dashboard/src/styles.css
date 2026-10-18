@@ -29,3 +29,9 @@ tr.clickable { cursor:pointer; } tr.clickable:hover { background:rgba(127,127,12
 .badge.unreachable { background:rgba(214,69,93,.15); color:#d6455d; }
 .badge.disabled { background:rgba(127,127,127,.18); color:var(--muted); }
 .tools { margin:0; padding-left:18px; display:grid; gap:6px; }
+.tabs { display:flex; gap:4px; margin-left:16px; }
+.tab { background:transparent; color:var(--muted); border:0; padding:6px 12px; border-radius:6px; }
+.tab.active { background:rgba(127,127,127,.15); color:var(--text); font-weight:600; }
+.notice { background:rgba(47,91,234,.1); border:1px solid var(--accent); border-radius:10px; padding:14px 18px; display:grid; gap:8px; }
+.secret { padding:8px 10px; background:var(--bg); border-radius:6px; user-select:all; word-break:break-all; }
+select { padding:8px 10px; border:1px solid var(--line); border-radius:6px; background:var(--bg); color:var(--text); font:inherit; }

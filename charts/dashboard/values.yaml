@@ -1,4 +1,4 @@
-image: dashboard:0.1.0
+image: dashboard:0.1.2
 host: dashboard.localtest.me
 gateway:
   service: gateway

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, clearSession, getSession, saveSession } from "./api";
+import { AuditPage, KeysPage, MembersPage } from "./pages";
 
 function Login({ onLogin }) {
   const [name, setName] = useState("");
@@ -164,23 +165,35 @@ function ServersPage() {
   );
 }
 
+const TABS = {
+  admin: [["servers", "Servers"], ["members", "Members"], ["keys", "API keys"], ["audit", "Audit log"]],
+  member: [["keys", "API keys"]],
+};
+
 export default function App() {
   const [session, setSession] = useState(getSession());
+  const [tab, setTab] = useState(null);
   if (!session) return <Login onLogin={setSession} />;
+  const tabs = TABS[session.role] || TABS.member;
+  const current = tabs.some(([id]) => id === tab) ? tab : tabs[0][0];
   return (
     <div>
       <header>
         <strong>MCP Gateway</strong>
+        <nav className="tabs">
+          {tabs.map(([id, label]) => (
+            <button key={id} className={id === current ? "tab active" : "tab"} onClick={() => setTab(id)}>{label}</button>
+          ))}
+        </nav>
         <span className="spacer" />
         <span className="muted">{session.name} ({session.role})</span>
-        <button className="ghost" onClick={() => { clearSession(); setSession(null); }}>Sign out</button>
+        <button className="ghost" onClick={() => { clearSession(); setSession(null); setTab(null); }}>Sign out</button>
       </header>
       <main>
-        {session.role === "admin" ? (
-          <ServersPage />
-        ) : (
-          <div className="card"><p>You are signed in as a member. Key and chat pages arrive in the next steps.</p></div>
-        )}
+        {current === "servers" && <ServersPage />}
+        {current === "members" && <MembersPage />}
+        {current === "keys" && <KeysPage isAdmin={session.role === "admin"} />}
+        {current === "audit" && <AuditPage />}
       </main>
     </div>
   );
