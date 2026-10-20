@@ -1,4 +1,4 @@
-image: gateway:0.1.2
+image: gateway:0.1.4
 host: gateway.localtest.me
 storage: 1Gi
 resources:
@@ -7,3 +7,7 @@ resources:
     memory: 128Mi
   limits:
     memory: 384Mi
+llm:
+  baseUrl: https://generativelanguage.googleapis.com/v1beta/openai/
+  model: gemini-3.5-flash-lite
+  secretName: llm-secret

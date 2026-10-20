@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, clearSession, getSession, saveSession } from "./api";
-import { AuditPage, KeysPage, MembersPage } from "./pages";
+import { AuditPage, ChatPage, KeysPage, MembersPage } from "./pages";
 
 function Login({ onLogin }) {
   const [name, setName] = useState("");
@@ -166,8 +166,8 @@ function ServersPage() {
 }
 
 const TABS = {
-  admin: [["servers", "Servers"], ["members", "Members"], ["keys", "API keys"], ["audit", "Audit log"]],
-  member: [["keys", "API keys"]],
+  admin: [["chat", "Chat"], ["servers", "Servers"], ["members", "Members"], ["keys", "API keys"], ["audit", "Audit log"]],
+  member: [["chat", "Chat"], ["keys", "API keys"]],
 };
 
 export default function App() {
@@ -187,13 +187,14 @@ export default function App() {
         </nav>
         <span className="spacer" />
         <span className="muted">{session.name} ({session.role})</span>
-        <button className="ghost" onClick={() => { clearSession(); setSession(null); setTab(null); }}>Sign out</button>
+        <button className="ghost" onClick={() => { clearSession(); try { sessionStorage.removeItem("gw_chat"); } catch { /* ignore */ } setSession(null); setTab(null); }}>Sign out</button>
       </header>
       <main>
         {current === "servers" && <ServersPage />}
         {current === "members" && <MembersPage />}
         {current === "keys" && <KeysPage isAdmin={session.role === "admin"} />}
         {current === "audit" && <AuditPage />}
+        {current === "chat" && <ChatPage />}
       </main>
     </div>
   );

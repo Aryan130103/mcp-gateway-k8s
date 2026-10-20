@@ -9,6 +9,9 @@ from auth import (authenticate, create_key_for, hash_password, require_admin,
 import secrets
 from db import get_conn, init_db
 from upstream import list_all_tools
+import llm
+import sys
+from agent import run_agent
 from mcp_endpoint import router as mcp_router
 
 app = FastAPI(title="MCP Gateway")
@@ -234,3 +237,45 @@ def revoke_my_key(key_id: int, user: dict = Depends(authenticate)) -> dict:
     if cur.rowcount == 0:
         raise HTTPException(404, "No active key with that id.")
     return {"revoked": key_id}
+
+
+@app.get("/api/chat/status")
+def chat_status(user: dict = Depends(authenticate)) -> dict:
+    return {"configured": llm.configured()}
+
+
+@app.post("/api/chat/ping")
+async def chat_ping(_: dict = Depends(require_admin)) -> dict:
+    """Admin-only check that the model answers."""
+    if not llm.configured():
+        raise HTTPException(503, "Chat isn't configured: add an LLM key.")
+    try:
+        msg = await llm.chat_completion(
+            [{"role": "user", "content": "Reply with the single word: ready"}])
+    except Exception as exc:
+        raise HTTPException(502, f"LLM call failed: {exc}")
+    return {"reply": msg.get("content")}
+
+
+class ChatIn(BaseModel):
+    messages: list[dict]
+
+
+@app.post("/api/chat")
+async def chat(body: ChatIn, user: dict = Depends(authenticate)) -> dict:
+    if not llm.configured():
+        raise HTTPException(503, "Chat isn't configured: add an LLM key.")
+    history = [
+        {"role": m["role"], "content": str(m.get("content", ""))[:4000]}
+        for m in body.messages[-20:]
+        if m.get("role") in ("user", "assistant")
+    ]
+    if not history or history[-1]["role"] != "user":
+        raise HTTPException(400, "The last message must be from the user.")
+    try:
+        return await run_agent(history, user)
+    except RuntimeError as exc:
+        raise HTTPException(502, str(exc))
+    except Exception as exc:
+        print(f"chat error: {exc!r}", file=sys.stderr, flush=True)
+        raise HTTPException(502, f"The assistant is unavailable ({type(exc).__name__}).")

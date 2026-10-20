@@ -25,6 +25,16 @@ spec:
           env:
             - name: GATEWAY_DB
               value: /data/gateway.db
+            - name: LLM_BASE_URL
+              value: {{ .Values.llm.baseUrl | quote }}
+            - name: LLM_MODEL
+              value: {{ .Values.llm.model | quote }}
+            - name: LLM_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.llm.secretName }}
+                  key: api-key
+                  optional: true
           readinessProbe:
             httpGet:
               path: /health

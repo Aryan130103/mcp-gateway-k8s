@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "./api";
 
 export function SecretBox({ title, value, onClose }) {
@@ -239,6 +239,98 @@ export function AuditPage() {
           </tbody>
         </table>
       )}
+    </div>
+  );
+}
+
+
+export function ChatPage() {
+  const [messages, setMessages] = useState(() => {
+    try { return JSON.parse(sessionStorage.getItem("gw_chat")) || []; } catch { return []; }
+  });
+  const [input, setInput] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [configured, setConfigured] = useState(null);
+  const [error, setError] = useState("");
+  const endRef = useRef(null);
+  useEffect(() => {
+    try { sessionStorage.setItem("gw_chat", JSON.stringify(messages)); } catch { /* storage unavailable */ }
+  }, [messages]);
+
+  useEffect(() => {
+    api("/api/chat/status").then((d) => setConfigured(d.configured)).catch(() => setConfigured(false));
+  }, []);
+  useEffect(() => {
+    if (endRef.current) endRef.current.scrollIntoView({ behavior: "smooth" });
+  }, [messages, busy]);
+
+  async function send(e) {
+    e.preventDefault();
+    const text = input.trim();
+    if (!text || busy) return;
+    const next = [...messages, { role: "user", content: text }];
+    setMessages(next);
+    setInput("");
+    setBusy(true);
+    setError("");
+    try {
+      const r = await api("/api/chat", {
+        method: "POST",
+        body: { messages: next.map(({ role, content }) => ({ role, content })) },
+      });
+      setMessages([...next, { role: "assistant", content: r.reply, tools: r.tool_calls }]);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (configured === false) {
+    return (
+      <div className="card">
+        <h2>Chat</h2>
+        <p className="muted">Chat isn&apos;t configured: an administrator needs to add an LLM key. Everything else still works.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="card">
+      <div className="row">
+        <h2>Chat</h2><span className="spacer" />
+        <button className="ghost" onClick={() => setMessages([])}>Clear chat</button>
+      </div>
+      <p className="muted">Ask about the store. The assistant uses the same tools and permissions as you, and every call is logged.</p>
+      <div className="chat">
+        {messages.length === 0 && <p className="muted">Try: &quot;What orders came in today?&quot; or &quot;List the products&quot;.</p>}
+        {messages.map((m, i) => (
+          <div key={i} className={`bubble ${m.role}`}>
+            <div className="text">{m.content}</div>
+            {m.tools && m.tools.length > 0 && (
+              <div className="toolcalls">
+                {m.tools.map((t, j) => (
+                  <details key={j}>
+                    <summary>
+                      <span className={`badge ${t.ok ? "connected" : "unreachable"}`}>{t.ok ? "ok" : "error"}</span>{" "}
+                      <span className="mono">{t.tool}</span>
+                    </summary>
+                    <pre className="mono">{JSON.stringify(t.arguments, null, 2)}</pre>
+                  </details>
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
+        {busy && <div className="bubble assistant muted">Thinking...</div>}
+        <div ref={endRef} />
+      </div>
+      {error && <div className="error">{error}</div>}
+      <form className="row" onSubmit={send}>
+        <input className="grow" placeholder="Ask something..." value={input}
+               onChange={(e) => setInput(e.target.value)} disabled={busy} />
+        <button disabled={busy || !input.trim()}>Send</button>
+      </form>
     </div>
   );
 }
