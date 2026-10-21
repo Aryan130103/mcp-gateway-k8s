@@ -6,8 +6,16 @@ from mcp.client.streamable_http import streamablehttp_client
 LIST_TIMEOUT = 5.0  # seconds to wait for one server's tool list
 
 
-async def fetch_tools(url: str) -> list:
-    async with streamablehttp_client(url) as (read, write, _):
+def upstream_headers(server: dict) -> dict:
+    cred = server.get("credential")
+    if not cred:
+        return {}
+    header = server.get("auth_header")
+    return {header: cred} if header else {"Authorization": f"Bearer {cred}"}
+
+
+async def fetch_tools(url: str, headers: dict | None = None) -> list:
+    async with streamablehttp_client(url, headers=headers or None) as (read, write, _):
         async with ClientSession(read, write) as session:
             await session.initialize()
             result = await session.list_tools()
@@ -19,7 +27,7 @@ async def list_all_tools(servers: list[dict]) -> tuple[list[dict], list[dict]]:
 
     async def one(server: dict):
         try:
-            tools = await asyncio.wait_for(fetch_tools(server["url"]), timeout=LIST_TIMEOUT)
+            tools = await asyncio.wait_for(fetch_tools(server["url"], upstream_headers(server)), timeout=LIST_TIMEOUT)
             return server["name"], "ok", tools, None
         except asyncio.TimeoutError:
             return server["name"], "unreachable", [], "timed out"
@@ -51,8 +59,8 @@ def root_error(exc: BaseException) -> str:
     return type(exc).__name__
 
 
-async def call_tool(url: str, tool: str, arguments: dict):
-    async with streamablehttp_client(url) as (read, write, _):
+async def call_tool(url: str, tool: str, arguments: dict, headers: dict | None = None):
+    async with streamablehttp_client(url, headers=headers or None) as (read, write, _):
         async with ClientSession(read, write) as session:
             await session.initialize()
             return await session.call_tool(tool, arguments)

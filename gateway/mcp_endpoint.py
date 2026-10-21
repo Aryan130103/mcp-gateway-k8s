@@ -6,7 +6,7 @@ from fastapi.responses import JSONResponse
 
 from auth import authenticate
 from db import get_conn
-from upstream import call_tool, list_all_tools, root_error
+from upstream import call_tool, list_all_tools, root_error, upstream_headers
 
 router = APIRouter()
 
@@ -38,7 +38,7 @@ def audit(user_name, server, tool, duration_ms, outcome, detail=None):
 
 def enabled_servers():
     with get_conn() as conn:
-        rows = conn.execute("SELECT name, url FROM mcp_servers WHERE enabled = 1 ORDER BY id").fetchall()
+        rows = conn.execute("SELECT name, url, credential, auth_header FROM mcp_servers WHERE enabled = 1 ORDER BY id").fetchall()
     return [dict(r) for r in rows]
 
 
@@ -81,7 +81,7 @@ async def handle(msg: dict, user: dict):
         start = time.monotonic()
         try:
             result = await asyncio.wait_for(
-                call_tool(servers[server_name]["url"], tool, arguments), timeout=CALL_TIMEOUT
+                call_tool(servers[server_name]["url"], tool, arguments, upstream_headers(servers[server_name])), timeout=CALL_TIMEOUT
             )
         except asyncio.TimeoutError:
             ms = int((time.monotonic() - start) * 1000)

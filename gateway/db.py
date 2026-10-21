@@ -51,3 +51,6 @@ def get_conn() -> sqlite3.Connection:
 def init_db() -> None:
     with get_conn() as conn:
         conn.executescript(SCHEMA)
+        cols = [r["name"] for r in conn.execute("PRAGMA table_info(mcp_servers)")]
+        if "auth_header" not in cols:
+            conn.execute("ALTER TABLE mcp_servers ADD COLUMN auth_header TEXT")

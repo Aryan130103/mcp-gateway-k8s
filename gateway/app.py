@@ -36,10 +36,16 @@ class ServerIn(BaseModel):
     name: str = Field(pattern=r"^[a-z][a-z0-9]{1,19}$")
     url: str = Field(pattern=r"^https?://")
     enabled: bool = True
+    credential: str | None = Field(default=None, max_length=2000)
+    auth_header: str | None = Field(default=None, pattern=r"^[A-Za-z0-9-]{1,64}$")
 
 
 class ServerPatch(BaseModel):
-    enabled: bool
+    enabled: bool | None = None
+    url: str | None = Field(default=None, pattern=r"^https?://")
+    credential: str | None = Field(default=None, max_length=2000)
+    auth_header: str | None = Field(default=None, pattern=r"^[A-Za-z0-9-]{1,64}$")
+    clear_credential: bool = False
 
 
 @app.get("/health")
@@ -120,12 +126,14 @@ def add_server(body: ServerIn, _: dict = Depends(require_admin)) -> dict:
     try:
         with get_conn() as conn:
             cur = conn.execute(
-                "INSERT INTO mcp_servers (name, url, enabled) VALUES (?, ?, ?)",
-                (body.name, body.url, int(body.enabled)),
+                "INSERT INTO mcp_servers (name, url, enabled, credential, auth_header) VALUES (?, ?, ?, ?, ?)",
+                (body.name, body.url, int(body.enabled), body.credential or None,
+                 body.auth_header if body.credential else None),
             )
     except sqlite3.IntegrityError:
         raise HTTPException(409, f"Server '{body.name}' already exists.")
-    return {"id": cur.lastrowid, "name": body.name, "url": body.url, "enabled": body.enabled}
+    return {"id": cur.lastrowid, "name": body.name, "url": body.url, "enabled": body.enabled,
+            "has_credential": bool(body.credential)}
 
 
 @app.get("/api/servers")
@@ -136,12 +144,26 @@ def list_servers(_: dict = Depends(require_admin)) -> list[dict]:
 
 
 @app.patch("/api/servers/{server_id}")
-def set_server_enabled(server_id: int, body: ServerPatch, _: dict = Depends(require_admin)) -> dict:
+def update_server(server_id: int, body: ServerPatch, _: dict = Depends(require_admin)) -> dict:
+    sets, args = [], []
+    if body.enabled is not None:
+        sets.append("enabled = ?"); args.append(int(body.enabled))
+    if body.url is not None:
+        sets.append("url = ?"); args.append(body.url)
+    if body.clear_credential:
+        sets += ["credential = NULL", "auth_header = NULL"]
+    elif body.credential is not None:
+        sets += ["credential = ?", "auth_header = ?"]; args += [body.credential or None, body.auth_header]
+    elif body.auth_header is not None:
+        sets.append("auth_header = ?"); args.append(body.auth_header)
+    if not sets:
+        raise HTTPException(400, "Nothing to change.")
+    args.append(server_id)
     with get_conn() as conn:
-        cur = conn.execute("UPDATE mcp_servers SET enabled = ? WHERE id = ?", (int(body.enabled), server_id))
+        cur = conn.execute(f"UPDATE mcp_servers SET {', '.join(sets)} WHERE id = ?", args)
     if cur.rowcount == 0:
         raise HTTPException(404, "No such server.")
-    return {"id": server_id, "enabled": body.enabled}
+    return {"id": server_id, "updated": True}
 
 
 @app.delete("/api/servers/{server_id}")
@@ -157,7 +179,7 @@ def remove_server(server_id: int, _: dict = Depends(require_admin)) -> dict:
 async def list_tools(user: dict = Depends(authenticate)) -> dict:
     """One combined menu of every enabled server's tools."""
     with get_conn() as conn:
-        rows = conn.execute("SELECT name, url FROM mcp_servers WHERE enabled = 1 ORDER BY id").fetchall()
+        rows = conn.execute("SELECT name, url, credential, auth_header FROM mcp_servers WHERE enabled = 1 ORDER BY id").fetchall()
     tools, servers = await list_all_tools([dict(r) for r in rows])
     return {"tools": tools, "servers": servers}
 
@@ -195,7 +217,7 @@ async def dashboard_servers(_: dict = Depends(require_admin)) -> list[dict]:
     """Every registered server with a status and its tools, for the dashboard."""
     with get_conn() as conn:
         rows = [dict(r) for r in conn.execute(
-            "SELECT id, name, url, enabled FROM mcp_servers ORDER BY id").fetchall()]
+            "SELECT id, name, url, enabled, credential, auth_header FROM mcp_servers ORDER BY id").fetchall()]
     tools, statuses = await list_all_tools([r for r in rows if r["enabled"]])
     state = {s["server"]: s for s in statuses}
     by_server: dict[str, list] = {}
@@ -211,6 +233,7 @@ async def dashboard_servers(_: dict = Depends(require_admin)) -> list[dict]:
             status = "Connected" if s["status"] == "ok" else "Unreachable"
             error = s["error"]
         out.append({"id": r["id"], "name": r["name"], "url": r["url"], "status": status,
+                    "has_credential": bool(r["credential"]), "auth_header": r["auth_header"],
                     "error": error, "tools": by_server.get(r["name"], [])})
     return out
 

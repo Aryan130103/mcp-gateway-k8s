@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { Fragment, useCallback, useEffect, useState } from "react";
 import { api, clearSession, getSession, saveSession } from "./api";
 import { AuditPage, ChatPage, KeysPage, MembersPage } from "./pages";
 
@@ -49,8 +49,11 @@ function ServersPage() {
   const [servers, setServers] = useState(null);
   const [error, setError] = useState("");
   const [open, setOpen] = useState(null);
-  const [form, setForm] = useState({ name: "", url: "" });
+  const [form, setForm] = useState({ name: "", url: "", credential: "", header: "" });
   const [formError, setFormError] = useState("");
+  const [editing, setEditing] = useState(null);
+  const [edit, setEdit] = useState({ url: "", credential: "", header: "", clear: false });
+  const [editError, setEditError] = useState("");
 
   const load = useCallback(async () => {
     try {
@@ -85,12 +88,41 @@ function ServersPage() {
     }
   };
 
+  function startEdit(s) {
+    setEditing(s.id);
+    setEdit({ url: s.url, credential: "", header: s.auth_header || "", clear: false });
+    setEditError("");
+  }
+
+  async function saveEdit(s) {
+    setEditError("");
+    const body = { url: edit.url };
+    if (edit.clear) {
+      body.clear_credential = true;
+    } else if (edit.credential) {
+      body.credential = edit.credential;
+      if (edit.header) body.auth_header = edit.header;
+    }
+    try {
+      await api(`/api/servers/${s.id}`, { method: "PATCH", body });
+      setEditing(null);
+      await load();
+    } catch (err) {
+      setEditError(err.message);
+    }
+  }
+
   async function add(e) {
     e.preventDefault();
     setFormError("");
+    const body = { name: form.name, url: form.url };
+    if (form.credential) {
+      body.credential = form.credential;
+      if (form.header) body.auth_header = form.header;
+    }
     try {
-      await api("/api/servers", { method: "POST", body: { name: form.name, url: form.url } });
-      setForm({ name: "", url: "" });
+      await api("/api/servers", { method: "POST", body });
+      setForm({ name: "", url: "", credential: "", header: "" });
       await load();
     } catch (err) {
       setFormError(err.message);
@@ -114,21 +146,55 @@ function ServersPage() {
             </thead>
             <tbody>
               {servers.map((s) => (
-                <>
-                  <tr key={s.id} className="clickable" onClick={() => setOpen(open === s.id ? null : s.id)}>
+                <Fragment key={s.id}>
+                  <tr className="clickable" onClick={() => setOpen(open === s.id ? null : s.id)}>
                     <td><strong>{s.name}</strong></td>
-                    <td className="mono">{s.url}</td>
+                    <td className="mono">
+                      {s.url}
+                      {s.has_credential && <> <span className="badge connected">credential set</span></>}
+                    </td>
                     <td><StatusBadge status={s.status} />{s.error && <span className="muted"> {s.error}</span>}</td>
                     <td>{s.tools.length}</td>
                     <td className="actions" onClick={(e) => e.stopPropagation()}>
+                      <button className="ghost" onClick={() => startEdit(s)}>Edit</button>
                       <button className="ghost" onClick={() => toggle(s)}>
                         {s.status === "Disabled" ? "Enable" : "Disable"}
                       </button>
                       <button className="danger" onClick={() => remove(s)}>Remove</button>
                     </td>
                   </tr>
+                  {editing === s.id && (
+                    <tr>
+                      <td colSpan="5">
+                        <div className="row">
+                          <input className="grow" placeholder="URL" value={edit.url}
+                                 onChange={(e) => setEdit({ ...edit, url: e.target.value })} />
+                        </div>
+                        <div className="row">
+                          <input className="grow" type="password" autoComplete="off"
+                                 placeholder={s.has_credential ? "New credential (leave blank to keep the current one)" : "Credential (optional)"}
+                                 value={edit.credential}
+                                 onChange={(e) => setEdit({ ...edit, credential: e.target.value })} />
+                          <input placeholder="Header name (blank = Authorization: Bearer)" value={edit.header}
+                                 onChange={(e) => setEdit({ ...edit, header: e.target.value })} />
+                        </div>
+                        {s.has_credential && (
+                          <label className="row">
+                            <input type="checkbox" checked={edit.clear}
+                                   onChange={(e) => setEdit({ ...edit, clear: e.target.checked })} />
+                            Remove the stored credential
+                          </label>
+                        )}
+                        {editError && <div className="error">{editError}</div>}
+                        <div className="row">
+                          <button onClick={() => saveEdit(s)}>Save</button>
+                          <button className="ghost" onClick={() => setEditing(null)}>Cancel</button>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
                   {open === s.id && (
-                    <tr key={`${s.id}-tools`}>
+                    <tr>
                       <td colSpan="5">
                         {s.tools.length === 0 ? (
                           <span className="muted">No tools listed.</span>
@@ -143,7 +209,7 @@ function ServersPage() {
                       </td>
                     </tr>
                   )}
-                </>
+                </Fragment>
               ))}
             </tbody>
           </table>
@@ -157,8 +223,15 @@ function ServersPage() {
                  onChange={(e) => setForm({ ...form, name: e.target.value })} />
           <input placeholder="http://server:8000/mcp" value={form.url} className="grow"
                  onChange={(e) => setForm({ ...form, url: e.target.value })} />
+        </div>
+        <div className="row">
+          <input className="grow" type="password" autoComplete="off" placeholder="Credential (optional)"
+                 value={form.credential} onChange={(e) => setForm({ ...form, credential: e.target.value })} />
+          <input placeholder="Header name (blank = Authorization: Bearer)" value={form.header}
+                 onChange={(e) => setForm({ ...form, header: e.target.value })} />
           <button disabled={!form.name || !form.url}>Add</button>
         </div>
+        <p className="muted">The credential is stored on the gateway and never shown again. Users and clients never see it.</p>
         {formError && <div className="error">{formError}</div>}
       </form>
     </>
