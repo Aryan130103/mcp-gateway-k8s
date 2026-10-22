@@ -1,0 +1,14 @@
+# Server (k3s on a VPS): real domain, bigger disks, explicit classes, more memory.
+wordpress:
+  host: shop.example.com
+  storage: 10Gi
+  resources:
+    requests: {cpu: 200m, memory: 512Mi}
+    limits: {memory: 1Gi}
+mariadb:
+  storage: 10Gi
+  resources:
+    requests: {cpu: 200m, memory: 512Mi}
+    limits: {memory: 1Gi}
+storageClass: local-path
+ingressClassName: traefik

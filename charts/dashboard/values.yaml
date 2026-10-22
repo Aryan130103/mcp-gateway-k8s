@@ -9,3 +9,4 @@ resources:
     memory: 32Mi
   limits:
     memory: 128Mi
+ingressClassName: ""

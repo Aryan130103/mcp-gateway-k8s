@@ -1,0 +1,7 @@
+host: gateway.example.com
+storage: 5Gi
+storageClass: local-path
+ingressClassName: traefik
+resources:
+  requests: {cpu: 200m, memory: 256Mi}
+  limits: {memory: 512Mi}

@@ -1,0 +1,8 @@
+# Laptop (k3d): plain HTTP on *.localtest.me, small disks, default storage and ingress.
+wordpress:
+  host: shop.localtest.me
+  storage: 2Gi
+mariadb:
+  storage: 2Gi
+storageClass: ""
+ingressClassName: ""

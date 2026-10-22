@@ -1,0 +1,4 @@
+host: gateway.localtest.me
+storage: 1Gi
+storageClass: ""
+ingressClassName: ""

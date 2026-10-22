@@ -3,6 +3,9 @@ kind: Ingress
 metadata:
   name: wordpress
 spec:
+{{- with .Values.ingressClassName }}
+  ingressClassName: {{ . | quote }}
+{{- end }}
   rules:
     - host: {{ .Values.wordpress.host | quote }}
       http:

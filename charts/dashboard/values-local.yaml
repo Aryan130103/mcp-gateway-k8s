@@ -1,0 +1,2 @@
+host: dashboard.localtest.me
+ingressClassName: ""

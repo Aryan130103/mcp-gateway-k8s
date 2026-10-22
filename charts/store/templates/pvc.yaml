@@ -4,6 +4,9 @@ metadata:
   name: mariadb-data
 spec:
   accessModes: [ReadWriteOnce]
+{{- with .Values.storageClass }}
+  storageClassName: {{ . | quote }}
+{{- end }}
   resources:
     requests:
       storage: {{ .Values.mariadb.storage }}

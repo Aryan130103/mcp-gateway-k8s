@@ -31,3 +31,5 @@ setup:
   siteTitle: "Demo Store"
   adminUser: admin
   adminEmail: admin@example.com
+storageClass: ""
+ingressClassName: ""

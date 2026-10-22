@@ -3,6 +3,9 @@ kind: Ingress
 metadata:
   name: gateway
 spec:
+{{- with .Values.ingressClassName }}
+  ingressClassName: {{ . | quote }}
+{{- end }}
   rules:
     - host: {{ .Values.host | quote }}
       http:

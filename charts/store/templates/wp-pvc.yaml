@@ -4,6 +4,9 @@ metadata:
   name: wordpress-data
 spec:
   accessModes: [ReadWriteOnce]
+{{- with .Values.storageClass }}
+  storageClassName: {{ . | quote }}
+{{- end }}
   resources:
     requests:
       storage: {{ .Values.wordpress.storage }}
