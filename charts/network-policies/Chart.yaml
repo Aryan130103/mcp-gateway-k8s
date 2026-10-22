@@ -1,0 +1,4 @@
+apiVersion: v2
+name: network-policies
+description: Deny-by-default ingress and explicit allow rules
+version: 0.1.0

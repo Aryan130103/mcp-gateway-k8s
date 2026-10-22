@@ -28,6 +28,7 @@ install woo-mcp woo-mcp
 install extra-mcp extra-mcp
 install gateway gateway
 install dashboard dashboard
+install network-policies network-policies
 
 gw() { kubectl -n "$NS" exec deploy/gateway -- "$@"; }
 echo "==> first admin and default servers"
