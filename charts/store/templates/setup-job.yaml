@@ -79,6 +79,9 @@ spec:
               wp plugin activate woocommerce
               wp option update woocommerce_currency INR
               wp option update woocommerce_default_country IN:MH
+              wp option update timezone_string Asia/Kolkata
+              wp option update woocommerce_coming_soon no
+              wp option update woocommerce_store_pages_only no
               wp rewrite structure '/%postname%/'
               wp rewrite flush --hard
 
