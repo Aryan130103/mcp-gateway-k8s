@@ -61,9 +61,45 @@ Open the store, add a product to the cart, check out with made-up details and ch
 
 ## Connect an external MCP client
 
-1. Dashboard → **API keys** → generate a key (shown once). Members can generate their own.
-2. In an MCP client that supports Streamable HTTP, use the URL `http://gateway.localtest.me/mcp` and a custom header `Authorization: Bearer <your key>`. Tested with MCP Inspector. Claude Code uses `claude mcp add --transport http gateway <url> --header "Authorization: Bearer <key>"`, but it was **not tested here** (it needs a paid plan).
-3. You see the tools of every enabled server, named `<server>__<tool>`. Disable a server in the dashboard and its tools disappear. Revoke the key and the next call is rejected.
+Any MCP client that supports Streamable HTTP works. These steps use MCP Inspector.
+
+**1. Get an API key.** Members generate their own in the dashboard (API keys tab, shown once). To get an admin key from the terminal, run this. It prints a key starting with `gw_` once:
+
+```bash
+kubectl -n mcp-gateway exec deploy/gateway -- python -c "from auth import create_key_for; print(create_key_for(1, 'inspector'))"
+```
+
+**2. Start Inspector.**
+
+```bash
+npx @modelcontextprotocol/inspector
+```
+
+It prints a link such as `http://localhost:6274/?MCP_PROXY_AUTH_TOKEN=...`. Open that exact link in your browser.
+
+**3. Add the gateway as a server.** Transport: Streamable HTTP. Then set the URL and the header (the header goes in the server's settings):
+
+```
+URL:     http://gateway.localtest.me/mcp
+Header:  Authorization: Bearer <your key>
+```
+
+**4. Try it.** The Tools tab lists the tools of every enabled server, named `<server>__<tool>`. Disable a server in the dashboard and its tools disappear. Revoke the key and the next call is rejected.
+
+**Check without Inspector:**
+
+```bash
+curl -s -X POST http://gateway.localtest.me/mcp \
+  -H "Authorization: Bearer <your key>" \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
+```
+
+Claude Code can connect the same way (not tested here, it needs a paid plan):
+
+```bash
+claude mcp add --transport http gateway http://gateway.localtest.me/mcp --header "Authorization: Bearer <your key>"
+```
 
 ## Use the chat agent
 
