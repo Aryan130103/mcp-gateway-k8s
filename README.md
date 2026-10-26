@@ -124,12 +124,34 @@ Dashboard → **Chat**. Ask for example "List the products", or "Create a produc
 
 ## Upgrade and rollback
 
+Helm keeps a numbered history of every install and upgrade. The script below upgrades the gateway (a memory-limit change, so the effect is visible), rolls back to the previous revision, and checks that the gateway is healthy and its data is intact. Run it from the repo root.
+
 ```bash
-helm upgrade gateway charts/gateway -n mcp-gateway -f charts/gateway/values-local.yaml --set image=gateway:<new-tag>
-helm history gateway -n mcp-gateway
-helm rollback gateway <revision> -n mcp-gateway
+LIM() { kubectl -n mcp-gateway get deploy gateway -o jsonpath='memory limit: {.spec.template.spec.containers[0].resources.limits.memory}{"\n"}'; }
+
+echo "=== 0. before";   helm history gateway -n mcp-gateway; LIM
+
+echo "=== 1. upgrade"
+helm upgrade gateway charts/gateway -n mcp-gateway -f charts/gateway/values-local.yaml --set resources.limits.memory=512Mi --wait
+helm history gateway -n mcp-gateway; LIM
+
+echo "=== 2. rollback (undo the upgrade)"
+helm rollback gateway -n mcp-gateway --wait
+helm history gateway -n mcp-gateway; LIM
+
+echo "=== 3. still healthy, data intact"
+kubectl -n mcp-gateway get pods -l app=gateway
+curl -s http://gateway.localtest.me/health; echo
+kubectl -n mcp-gateway exec deploy/gateway -- python -c "import sqlite3;c=sqlite3.connect('/data/gateway.db');print('users:',c.execute('select count(*) from users').fetchone()[0],'servers:',c.execute('select count(*) from mcp_servers').fetchone()[0])"
 ```
-Database changes are additive (`ALTER TABLE ... ADD COLUMN`), so rolling the gateway back leaves the data usable. The store chart re-runs its setup job on every upgrade and is safe to repeat. Data lives on PVCs, so pod restarts and upgrades keep it.
+
+What to expect:
+
+- Step 1 adds a revision and the memory limit changes from 384Mi to 512Mi.
+- Step 2 adds another revision described as "Rollback to <the revision before the upgrade>" and the limit returns to 384Mi. A rollback is recorded as a new revision, so the history only grows. Helm keeps the last 10 revisions by default, which is why the script rolls back to the previous one instead of a fixed number.
+- Step 3 shows the gateway pod `1/1`, a healthy `/health` response, and the same user and server counts, because the data lives on the PVC, not in the pod.
+
+For a real release, use `--set image=gateway:<your-new-tag>`. Database changes are additive (`ALTER TABLE ... ADD COLUMN`), so rolling the gateway back leaves the data usable. The store chart re-runs its setup job on every upgrade and is safe to repeat. Each gateway change restarts the pod briefly, because its disk allows only one pod at a time (`Recreate`).
 
 ## Repo layout
 
